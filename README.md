@@ -39,6 +39,27 @@ Strip the audio stream entirely. Output is the original video with no audio trac
 ### ⚡ Speed Change
 Speed up or slow down playback (0.25× – 4×). Both the video PTS and the `atempo` audio filter chain are adjusted so audio pitch and sync are preserved. Chains multiple `atempo` stages automatically when the multiplier is outside the 0.5–2.0 range that a single filter accepts.
 
+### 🔄 Rotate / Flip
+Correct orientation or create mirror effects without re-uploading. Options: 90° clockwise, 90° counter-clockwise, 180°, flip horizontal, flip vertical, or flip both axes.
+
+### ✂️ Crop
+Trim the frame to a specific region. X/Y offset and width/height are auto-filled from the source video dimensions so you can immediately drag values down rather than starting from scratch.
+
+### 🖼 Thumbnail Extractor
+Pull a single frame from any point in the video and save it as a **JPEG** or **PNG** image. The timestamp field is pre-filled to the midpoint of the loaded clip.
+
+### ⏪ Reverse
+Play the video (and audio) backwards using ffmpeg's `reverse` + `areverse` filters.
+
+### 🌅 Fade In / Out
+Add a smooth fade-in, fade-out, or both. Set the duration in seconds for each direction independently; the filter is applied after any trim.
+
+### 🎨 Adjust (Brightness / Contrast / Saturation)
+Fine-tune the look of a clip with the `eq` filter. Three sliders control brightness (−1 → 1), contrast (0 → 2), and saturation (0 → 3). A **Grayscale** checkbox pins saturation to zero for instant black-and-white output.
+
+### 🚫 Strip Metadata
+Remove all embedded metadata — GPS coordinates, camera make/model, creation timestamps, and any other tags — before sharing a file. Uses `-map_metadata -1` during re-encoding.
+
 ---
 
 ## How It Works
@@ -46,9 +67,9 @@ Speed up or slow down playback (0.25× – 4×). Both the video PTS and the `ate
 1. Click **Load ffmpeg** — downloads the ffmpeg-core WebAssembly binary (~31 MB, cached after first load).
 2. Drop or select a video file.
 3. Optionally set trim points with the timeline sliders.
-4. Pick an operation and adjust its settings.
+4. Pick an operation and adjust its settings. A **live size estimate** updates as you change parameters.
 5. Click **Process Video** — ffmpeg runs entirely in a Web Worker inside your browser.
-6. Preview the result and download it.
+6. Preview the result (video, audio player, or image depending on the operation) and download it.
 
 All file I/O stays on your machine. Nothing is sent to any server.
 

@@ -216,6 +216,13 @@
             <button class="op-tile" id="op-mute"          onclick="setOp('mute')">🔇 Mute</button>
             <button class="op-tile" id="op-gif"           onclick="setOp('gif')">🎞 To GIF</button>
             <button class="op-tile" id="op-speed"         onclick="setOp('speed')">⚡ Speed</button>
+            <button class="op-tile" id="op-rotate"        onclick="setOp('rotate')">🔄 Rotate / Flip</button>
+            <button class="op-tile" id="op-crop"          onclick="setOp('crop')">✂️ Crop</button>
+            <button class="op-tile" id="op-thumbnail"     onclick="setOp('thumbnail')">🖼️ Thumbnail</button>
+            <button class="op-tile" id="op-reverse"       onclick="setOp('reverse')">⏪ Reverse</button>
+            <button class="op-tile" id="op-fade"          onclick="setOp('fade')">🌅 Fade In/Out</button>
+            <button class="op-tile" id="op-adjust"        onclick="setOp('adjust')">🎨 Adjust</button>
+            <button class="op-tile" id="op-stripmeta"     onclick="setOp('stripmeta')">🚫 Strip Metadata</button>
           </div>
 
           <!-- Convert -->
@@ -334,6 +341,125 @@
             </div>
           </div>
 
+          <!-- Rotate / Flip -->
+          <div class="op-panel hidden" id="panel-rotate">
+            <h4>Rotate / Flip</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="lbl">Transform</label>
+                <select id="rotateVal">
+                  <option value="cw90">90° Clockwise</option>
+                  <option value="ccw90">90° Counter-clockwise</option>
+                  <option value="180">180°</option>
+                  <option value="hflip">Flip Horizontal</option>
+                  <option value="vflip">Flip Vertical</option>
+                  <option value="hvflip">Flip Both (180°)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Crop -->
+          <div class="op-panel hidden" id="panel-crop">
+            <h4>Crop</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="lbl">X — left offset (px)</label>
+                <input type="number" id="cropX" value="0" min="0" oninput="updateSizeEstimate()">
+              </div>
+              <div class="form-group">
+                <label class="lbl">Y — top offset (px)</label>
+                <input type="number" id="cropY" value="0" min="0" oninput="updateSizeEstimate()">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="lbl">Width (px)</label>
+                <input type="number" id="cropW" placeholder="auto" oninput="updateSizeEstimate()">
+              </div>
+              <div class="form-group">
+                <label class="lbl">Height (px)</label>
+                <input type="number" id="cropH" placeholder="auto" oninput="updateSizeEstimate()">
+              </div>
+            </div>
+            <p class="hint">X/Y are offsets from the top-left. Leave width/height blank to crop to the remaining area.</p>
+          </div>
+
+          <!-- Thumbnail -->
+          <div class="op-panel hidden" id="panel-thumbnail">
+            <h4>Extract Thumbnail</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="lbl">Timestamp (seconds)</label>
+                <input type="number" id="thumbTime" value="0" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label class="lbl">Format</label>
+                <select id="thumbFmt">
+                  <option value="jpg">JPEG</option>
+                  <option value="png">PNG (lossless)</option>
+                </select>
+              </div>
+            </div>
+            <p class="hint">Extracts a single frame at the given timestamp as an image file.</p>
+          </div>
+
+          <!-- Reverse -->
+          <div class="op-panel hidden" id="panel-reverse">
+            <h4>Reverse</h4>
+            <p class="hint" style="font-size:.82rem;color:var(--text)">Plays video and audio backwards. The whole clip is buffered in memory — keep clips under ~2 minutes for best results.</p>
+          </div>
+
+          <!-- Fade -->
+          <div class="op-panel hidden" id="panel-fade">
+            <h4>Fade In / Out</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="lbl">Fade in (sec)</label>
+                <input type="number" id="fadeIn" value="1" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label class="lbl">Fade out (sec)</label>
+                <input type="number" id="fadeOut" value="1" min="0" step="0.1">
+              </div>
+            </div>
+            <p class="hint">Set either value to 0 to skip that direction. Applied after trimming.</p>
+          </div>
+
+          <!-- Adjust -->
+          <div class="op-panel hidden" id="panel-adjust">
+            <h4>Adjust</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="lbl">Brightness</label>
+                <input type="range" id="adjBright" min="-1" max="1" value="0" step="0.05" oninput="document.getElementById('adjBrightVal').textContent=this.value">
+                <div class="time-val"><span id="adjBrightVal">0</span></div>
+              </div>
+              <div class="form-group">
+                <label class="lbl">Contrast</label>
+                <input type="range" id="adjContrast" min="0" max="2" value="1" step="0.05" oninput="document.getElementById('adjContrastVal').textContent=this.value">
+                <div class="time-val"><span id="adjContrastVal">1</span></div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="lbl">Saturation</label>
+                <input type="range" id="adjSat" min="0" max="3" value="1" step="0.05" oninput="document.getElementById('adjSatVal').textContent=this.value">
+                <div class="time-val"><span id="adjSatVal">1</span></div>
+              </div>
+              <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:18px">
+                <input type="checkbox" id="adjGray" style="width:auto;accent-color:var(--accent)">
+                <label class="lbl" for="adjGray" style="margin:0;cursor:pointer">Grayscale</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Strip Metadata -->
+          <div class="op-panel hidden" id="panel-stripmeta">
+            <h4>Strip Metadata</h4>
+            <p class="hint" style="font-size:.82rem;color:var(--text)">Removes all embedded metadata (GPS, camera info, creation date, etc.) from the output file. Video and audio are re-encoded.</p>
+          </div>
+
           <!-- Size estimate -->
           <div id="sizeEstWrap" class="size-estimate hidden">
             <span>Estimated output size</span>
@@ -362,6 +488,7 @@
             <div id="outAudioWrap" class="hidden">
               <audio id="outAudio" controls style="width:100%;margin-top:8px;border-radius:7px"></audio>
             </div>
+            <img id="outImg" class="hidden" style="max-width:100%;border-radius:7px;margin-top:8px;display:block">
             <div class="out-actions">
               <button class="btn btn-success" id="dlBtn" onclick="download()">⬇ Download</button>
               <span class="out-size" id="outMeta"></span>
@@ -529,6 +656,11 @@ async function handleFile(file) {
     // Auto-fill resize & compress dimensions from source video
     if (vid.videoWidth)  document.getElementById('rcW').value = vid.videoWidth;
     if (vid.videoHeight) document.getElementById('rcH').value = vid.videoHeight;
+    // Auto-fill crop dimensions
+    if (vid.videoWidth)  document.getElementById('cropW').value = vid.videoWidth;
+    if (vid.videoHeight) document.getElementById('cropH').value = vid.videoHeight;
+    // Auto-fill thumbnail timestamp to midpoint
+    document.getElementById('thumbTime').value = (vidDur / 2).toFixed(1);
     updateSizeEstimate();
   };
   document.getElementById('inputWrap').classList.remove('hidden');
@@ -634,6 +766,20 @@ function updateSizeEstimate() {
     case 'speed': {
       const sp = parseFloat(document.getElementById('speedVal').value) || 2;
       estimated = srcBitrate / 8 * dur / sp;
+      break;
+    }
+    case 'rotate':   { estimated = srcSize * (dur / vidDur); break; }
+    case 'reverse':  { estimated = srcSize * (dur / vidDur); break; }
+    case 'fade':     { estimated = srcSize * (dur / vidDur); break; }
+    case 'adjust':   { estimated = srcSize * (dur / vidDur); break; }
+    case 'stripmeta':{ estimated = srcSize * 0.99; break; }
+    case 'thumbnail':{ wrap.classList.add('hidden'); return; }
+    case 'crop': {
+      const cx = parseInt(document.getElementById('cropX').value) || 0;
+      const cy = parseInt(document.getElementById('cropY').value) || 0;
+      const cw = parseInt(document.getElementById('cropW').value) || (srcW - cx);
+      const ch = parseInt(document.getElementById('cropH').value) || (srcH - cy);
+      estimated = srcSize * (dur / vidDur) * (cw * ch) / (srcW * srcH);
       break;
     }
   }
@@ -749,6 +895,63 @@ async function runProcess() {
         );
         break;
       }
+      case 'rotate': {
+        ext = 'mp4';
+        const vf = { cw90:'transpose=1', ccw90:'transpose=2', '180':'hflip,vflip', hflip:'hflip', vflip:'vflip', hvflip:'hflip,vflip' };
+        args.push('-vf', vf[document.getElementById('rotateVal').value], '-c:v','libx264','-preset','fast','-c:a','aac');
+        break;
+      }
+      case 'crop': {
+        const vid = document.getElementById('inputVideo');
+        const srcW = vid.videoWidth || 1920, srcH = vid.videoHeight || 1080;
+        const cx = parseInt(document.getElementById('cropX').value) || 0;
+        const cy = parseInt(document.getElementById('cropY').value) || 0;
+        const cw = parseInt(document.getElementById('cropW').value) || (srcW - cx);
+        const ch = parseInt(document.getElementById('cropH').value) || (srcH - cy);
+        ext = 'mp4';
+        args.push('-vf', `crop=${cw}:${ch}:${cx}:${cy}`, '-c:v','libx264','-preset','fast','-c:a','aac');
+        break;
+      }
+      case 'thumbnail': {
+        const t = parseFloat(document.getElementById('thumbTime').value) || 0;
+        ext = document.getElementById('thumbFmt').value;
+        args.length = 0; // override trim args — seek directly to timestamp
+        args.push('-ss', t.toFixed(3), '-i', inName, '-vframes', '1');
+        if (ext === 'jpg') args.push('-q:v', '2');
+        break;
+      }
+      case 'reverse': {
+        ext = 'mp4';
+        args.push('-vf','reverse','-af','areverse','-c:v','libx264','-preset','fast','-c:a','aac');
+        break;
+      }
+      case 'fade': {
+        ext = 'mp4';
+        const trimS2 = parseFloat(document.getElementById('trimStart').value) || 0;
+        const trimE2 = parseFloat(document.getElementById('trimEnd').value)   || vidDur;
+        const clipDur = trimE2 - trimS2;
+        const fi = parseFloat(document.getElementById('fadeIn').value)  || 0;
+        const fo = parseFloat(document.getElementById('fadeOut').value) || 0;
+        const vFilters = [], aFilters = [];
+        if (fi > 0) { vFilters.push(`fade=t=in:st=0:d=${fi}`);           aFilters.push(`afade=t=in:st=0:d=${fi}`); }
+        if (fo > 0) { vFilters.push(`fade=t=out:st=${(clipDur-fo).toFixed(3)}:d=${fo}`); aFilters.push(`afade=t=out:st=${(clipDur-fo).toFixed(3)}:d=${fo}`); }
+        if (vFilters.length) args.push('-vf', vFilters.join(','), '-af', aFilters.join(','));
+        args.push('-c:v','libx264','-preset','fast','-c:a','aac');
+        break;
+      }
+      case 'adjust': {
+        ext = 'mp4';
+        const br  = document.getElementById('adjBright').value;
+        const con = document.getElementById('adjContrast').value;
+        const sat = document.getElementById('adjGray').checked ? '0' : document.getElementById('adjSat').value;
+        args.push('-vf', `eq=brightness=${br}:contrast=${con}:saturation=${sat}`, '-c:v','libx264','-preset','fast','-c:a','aac');
+        break;
+      }
+      case 'stripmeta': {
+        ext = 'mp4';
+        args.push('-map_metadata','-1','-c:v','libx264','-preset','fast','-c:a','aac');
+        break;
+      }
     }
 
     outExt = ext;
@@ -765,20 +968,23 @@ async function runProcess() {
     const url = await blobToDataURL(outBlob);
 
     const audioExts = ['mp3','aac','wav','ogg','flac'];
-    const ov = document.getElementById('outVideo');
-    const oa = document.getElementById('outAudio');
+    const imageExts = ['jpg','png'];
+    const ov  = document.getElementById('outVideo');
+    const oa  = document.getElementById('outAudio');
     const oaw = document.getElementById('outAudioWrap');
+    const oim = document.getElementById('outImg');
 
     document.getElementById('outEmpty').classList.add('hidden');
     document.getElementById('outContent').classList.remove('hidden');
 
     if (audioExts.includes(ext)) {
-      ov.classList.add('hidden');
-      oaw.classList.remove('hidden');
+      ov.classList.add('hidden'); oaw.classList.remove('hidden'); oim.classList.add('hidden');
       oa.src = url;
+    } else if (imageExts.includes(ext)) {
+      ov.classList.add('hidden'); oaw.classList.add('hidden'); oim.classList.remove('hidden');
+      oim.src = url;
     } else {
-      ov.classList.remove('hidden');
-      oaw.classList.add('hidden');
+      ov.classList.remove('hidden'); oaw.classList.add('hidden'); oim.classList.add('hidden');
       ov.src = url;
     }
 
@@ -866,6 +1072,7 @@ function mime(ext) {
     mov:'video/quicktime', avi:'video/x-msvideo', gif:'image/gif',
     mp3:'audio/mpeg', aac:'audio/aac', wav:'audio/wav',
     ogg:'audio/ogg', flac:'audio/flac',
+    jpg:'image/jpeg', png:'image/png',
   })[ext] || 'application/octet-stream';
 }
 
