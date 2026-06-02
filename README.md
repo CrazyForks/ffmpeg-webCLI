@@ -67,7 +67,54 @@ Mux an `.srt`, `.vtt`, or `.ass` subtitle file into the video as a **soft subtit
 
 Video and audio are stream-copied (zero quality loss, near-instant). Hard-burning subtitles into the picture requires a libass-enabled ffmpeg build and is not available in the standard WebAssembly core.
 
-### 🛠 Raw FFmpeg
+### � Volume
+Boost or reduce the audio level of any video. A single slider sets the **volume multiplier** (0 = silence, 1.0 = unchanged, up to 4×). Audio is re-encoded using the `volume` filter; the video stream is stream-copied (no quality loss, no re-encode overhead).
+
+### 🔁 Loop / Repeat
+Play the video N times back-to-back in a single output file. Set **Total plays** (2–50); ffmpeg uses `-stream_loop` with stream copy so there is no re-encoding and the output file is proportionally larger. Trim is not applied for this operation.
+
+### 🖼️ Logo / Image Overlay
+Stamp a logo, watermark, or any image (PNG with transparency works best) onto every frame. Controls:
+- **Image file** — any PNG, JPG, GIF, or WebP
+- **Position** — bottom-right, top-left, top-right, bottom-left, or centre
+- **Width (% of video)** — scales the logo relative to the video width (default 15%)
+
+Uses the `overlay` filter with a `scale` pre-pass. Video is re-encoded; audio is stream-copied.
+
+### 🎵 Mix Audio (Background Music)
+Blend a second audio file into the video as background music. Controls:
+- **Music / audio file** — MP3, WAV, OGG, AAC, FLAC, M4A
+- **Original audio volume** slider (0–2, default 1.0)
+- **Music volume** slider (0–2, default 0.30)
+
+The music track loops automatically via `-stream_loop -1` if it is shorter than the video. Both streams are mixed with the `amix` filter (`duration=first` so output matches the video length). Video is stream-copied.
+
+### 🔗 Concatenate (Join Clips)
+Append a second video clip after the loaded file. Uses the `concat` filter with H.264/AAC re-encoding, so clips with different resolutions, frame rates, and codecs are handled automatically. Trim applies to the first clip only; the second clip is taken in full.
+
+### ↔️ Side by Side
+Place two video clips next to each other in a single frame:
+- **Layout** — Horizontal (left / right using `hstack`) or Vertical (top / bottom using `vstack`)
+- **Common dimension** — target height in pixels for horizontal layout, or target width for vertical layout (both clips are scaled to match)
+- **Audio** — take from the first clip, the second clip, or output no audio
+
+Re-encodes to H.264/AAC. Useful for comparison videos, reaction videos, and split-screen content. Trim is ignored.
+
+### ⧉ Picture in Picture
+Overlay a second video on top of the main clip in a small inset window. Controls:
+- **Overlay video** — the smaller video to appear as the inset
+- **Position** — corner or centre (same options as Logo Overlay)
+- **Width (% of main video)** — controls the inset size (default 30%)
+
+The overlay video loops automatically if it is shorter than the main clip. Trim applies to the main clip. Audio from the main clip is preserved. Both streams are re-encoded to H.264/AAC.
+
+### 📊 Media Info
+Displays key metadata extracted from the browser's video element immediately when a file is loaded:
+- File name, size, duration, resolution, estimated bitrate, and MIME type
+
+Click **Process Video** to run a **deep scan** (`ffmpeg -hide_banner -i …`) and print full codec, stream, pixel format, and container details to the log panel below.
+
+### �🛠 Raw FFmpeg
 Full access to the ffmpeg command line directly in the browser. Type any arguments into the text area; they are inserted after `-i input` and before the output filename. Choose the output file extension and optionally bypass the trim range. A live **full command preview** updates as you type, showing the exact command that will be executed. Quoted values containing spaces are handled correctly.
 
 An **Example Commands** library (collapsible) provides one-click recipes to get started:
