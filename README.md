@@ -286,14 +286,14 @@ This project is licensed under the **GNU General Public License v3.0** (GPL-3.0)
 ### License Summary
 
 You are free to:
-- ✓ Use this software for any purpose
-- ✓ Study and modify the source code  
-- ✓ Distribute copies of the software
-- ✓ Distribute modified versions
+ ✓ Use this software for any purpose
+ ✓ Study and modify the source code  
+ ✓ Distribute copies of the software
+ ✓ Distribute modified versions
 
 With the requirement that you:
-- ▢ Include a copy of the license
-- ✎ Document changes made to the code
-- ◆ Make source code available when distributing
+ ▢ Include a copy of the license
+ ✎ Document changes made to the code
+ ◆ Make source code available when distributing
 
 This project builds on [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) (LGPL-2.1) which is built from [FFmpeg](https://ffmpeg.org/) (LGPL-2.1+).
