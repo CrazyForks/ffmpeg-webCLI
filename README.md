@@ -37,7 +37,7 @@ Re-encode a video to a different container and codec:
 ### ⊟ Video Compression
 Reduce file size without changing the resolution. Dial in the quality with a **CRF slider** (18 = near-lossless → 51 = maximum compression) and pick an encoding **preset** (ultrafast → veryslow) to trade encoding speed for compression efficiency. A live size estimate updates as you adjust the settings.
 
-### ✂ Video Trimming
+### ▤ Video Trimming
 Set a start and end point with the timeline sliders before running any operation. Trimming is applied on top of every other operation, so you can, for example, extract a short clip, compress it, and convert it to GIF all at once.
 
 ### ⊞ Resize & Compress
@@ -62,7 +62,7 @@ Correct orientation or create mirror effects without re-uploading. Options: 90°
 
 <img src='demos/invert.gif'>
 
-### ✂ Crop
+### ▤ Crop
 Trim the frame to a specific region. X/Y offset and width/height are auto-filled from the source video dimensions so you can immediately drag values down rather than starting from scratch.
 
 ### ▭ Thumbnail Extractor
@@ -134,7 +134,7 @@ Displays key metadata extracted from the browser's video element immediately whe
 
 Click **Process Video** to run a **deep scan** (`ffmpeg -hide_banner -i …`) and print full codec, stream, pixel format, and container details to the log panel below.
 
-### ⚙ Raw FFmpeg
+### ◎ Raw FFmpeg
 Full access to the ffmpeg command line directly in the browser. Type any arguments into the text area; they are inserted after `-i input` and before the output filename. Choose the output file extension and optionally bypass the trim range. A live **full command preview** updates as you type, showing the exact command that will be executed. Quoted values containing spaces are handled correctly.
 
 <img src='demos/raw.gif'>
