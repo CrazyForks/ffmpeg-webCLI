@@ -144,19 +144,19 @@ An **Example Commands** library (collapsible) provides one-click recipes to get 
 
 | Example | What it does |
 |---|---|
-| 🔲 Color-bar watermark | Semi-transparent `drawbox` stamp in the bottom-right corner |
-| 🎞 Cap framerate to 24 fps | `fps=24` filter + H.264 re-encode |
-| 🎨 Convert to grayscale | `format=gray` + H.264 re-encode |
-| 🔊 Loudness normalize | `loudnorm` filter, stream-copies video |
-| 📦 Lossless remux (copy) | `-c copy` — change container, zero quality loss |
-| 📐 Letterbox / pillarbox | Scales to 1920×1080, pads with black bars |
-| 🌀 Denoise (hqdn3d) | Temporal + spatial denoising |
-| 🔍 Sharpen (unsharp) | `unsharp` mask filter |
-| 🎯 Stabilize (deshake) | `deshake` motion stabilization |
-| 🌑 Vignette effect | `vignette` filter darkens edges |
-| 🔇 Extract audio as WAV | `-vn -acodec pcm_s16le` lossless audio export |
-| 🖼 Extract first frame | `-vframes 1` saves a single PNG |
-| 🎵 Replace audio track | Strips original audio and muxes in `input2.mp3`; uses `-map 0:v:0 -map 1:a:0 -shortest` |
+| ▢ Color-bar watermark | Semi-transparent `drawbox` stamp in the bottom-right corner |
+| ▶ Cap framerate to 24 fps | `fps=24` filter + H.264 re-encode |
+| ◎ Convert to grayscale | `format=gray` + H.264 re-encode |
+| ◆ Loudness normalize | `loudnorm` filter, stream-copies video |
+| ◇ Lossless remux (copy) | `-c copy` — change container, zero quality loss |
+| ⊞ Letterbox / pillarbox | Scales to 1920×1080, pads with black bars |
+| ≈ Denoise (hqdn3d) | Temporal + spatial denoising |
+| ◉ Sharpen (unsharp) | `unsharp` mask filter |
+| ⊗ Stabilize (deshake) | `deshake` motion stabilization |
+| ⊕ Vignette effect | `vignette` filter darkens edges |
+| ⊘ Extract audio as WAV | `-vn -acodec pcm_s16le` lossless audio export |
+| ▭ Extract first frame | `-vframes 1` saves a single PNG |
+| ♪ Replace audio track | Strips original audio and muxes in `input2.mp3`; uses `-map 0:v:0 -map 1:a:0 -shortest` |
 
 Clicking a recipe fills in the arguments and extension fields instantly.
 
@@ -286,14 +286,14 @@ This project is licensed under the **GNU General Public License v3.0** (GPL-3.0)
 ### License Summary
 
 You are free to:
-- ✅ Use this software for any purpose
-- ✅ Study and modify the source code  
-- ✅ Distribute copies of the software
-- ✅ Distribute modified versions
+- ✓ Use this software for any purpose
+- ✓ Study and modify the source code  
+- ✓ Distribute copies of the software
+- ✓ Distribute modified versions
 
 With the requirement that you:
-- 📋 Include a copy of the license
-- 📝 Document changes made to the code
-- 📢 Make source code available when distributing
+- ▢ Include a copy of the license
+- ✎ Document changes made to the code
+- ◆ Make source code available when distributing
 
 This project builds on [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) (LGPL-2.1) which is built from [FFmpeg](https://ffmpeg.org/) (LGPL-2.1+).
