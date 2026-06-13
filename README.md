@@ -268,9 +268,10 @@ Video is re-encoded to H.264; audio is stream-copied.
 
 ## Acknowledgments
 
-This project is maintained with community feedback. Key features implemented from user requests:
+This project is maintained with community feedback. Key features and improvements from user requests and contributions:
 
 - **Operation Chaining (Stack Mode)** — [#2](https://github.com/tejaswigowda/ffmpeg-webCLI/issues/2): Queue and compose multiple compatible operations into a single filter chain and execute in one pass, avoiding quality loss from repeated re-encoding.
+- [PR #1](https://github.com/tejaswigowda/ffmpeg-webCLI/pull/1): Community contributions and improvements to the codebase.
 
 ---
 
