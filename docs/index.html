@@ -138,6 +138,22 @@
     .stack-controls { display: inline-flex; gap: 4px; flex-shrink: 0; }
     .stack-mini { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; transition: color .15s, border-color .15s; }
     .stack-mini:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+
+    /* Batch mode */
+    .batch-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 5px; font-size: 0.7rem; font-weight: 600; cursor: pointer; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); transition: all .15s; }
+    .batch-toggle:hover { background: var(--surface3); color: var(--text); }
+    .batch-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .batch-queue-list { display: none; }
+    .batch-queue-list.visible { display: block; margin-top: 12px; }
+    .batch-file-item { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-bottom: 4px; font-size: 0.78rem; }
+    .batch-file-status { flex-shrink: 0; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+    .batch-file-status.pending { color: var(--muted); }
+    .batch-file-status.processing { color: var(--accent); animation: blink 1s infinite; }
+    .batch-file-status.done { color: var(--success); }
+    .batch-file-status.error { color: var(--danger); }
+    .batch-file-name { flex: 1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .batch-file-remove { flex-shrink: 0; color: var(--muted); cursor: pointer; font-size: 0.7rem; }
+    .batch-file-remove:hover { color: var(--danger); }
     .stack-mini.danger:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
     .stack-mini:disabled { opacity: .3; cursor: not-allowed; }
     .stack-note { font-size: 0.78rem; color: var(--warn); background: rgba(234,179,8,.08); border: 1px solid rgba(234,179,8,.25); border-radius: 7px; padding: 9px 11px; margin-top: 6px; display: flex; align-items: center; gap: 7px; }
@@ -309,19 +325,26 @@
     <!-- ── Left: Input + Trim ── -->
     <div>
       <div class="card">
-        <div class="card-header">Input Video</div>
+        <div class="card-header">Input Video<button class="batch-toggle" id="batchToggle" onclick="toggleBatchMode()" title="Process multiple files"><i class="fas fa-layer-group"></i> Batch</button></div>
         <div class="card-body">
           <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
             <i class="fas fa-file-video" style="font-size:3rem;margin-bottom:10px;opacity:0.7"></i>
-            <p><strong>Click to choose</strong> or drag & drop local file</p>
+            <p id="dropZoneText"><strong>Click to choose</strong> or drag & drop local file</p>
             <p style="margin-top:5px;font-size:.72rem">MP4, WebM, MOV, AVI, MKV, GIF…</p>
           </div>
-          <input type="file" id="fileInput" accept="video/*,image/gif" onchange="handleFile(this.files[0])">
+          <input type="file" id="fileInput" accept="video/*,image/gif" onchange="handleFileInput(this)">
           <div id="inputWrap" class="hidden" style="margin-top:12px">
             <video id="inputVideo" controls></video>
             <div class="file-meta">
               <span id="inputMeta"></span>
               <button class="btn btn-ghost btn-sm" onclick="clearInput()"><i class="fas fa-xmark"></i> Remove</button>
+            </div>
+          </div>
+          <div class="batch-queue-list" id="batchQueueList">
+            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px" id="batchQueueCounter">0 files queued</div>
+            <div id="batchQueueItems"></div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <button class="btn btn-ghost btn-sm" onclick="clearBatchQueue()" style="flex:1"><i class="fas fa-trash"></i> Clear Queue</button>
             </div>
           </div>
         </div>
@@ -1107,15 +1130,21 @@ let stackSeq  = 0;
 const CHAINABLE = new Set(['crop','resizecompress','rotate','adjust','fade','denoise','sharpenblur','speed','pad','volume']);
 const STACK_ICON = { crop:'fa-crop-simple', resizecompress:'fa-compress', rotate:'fa-rotate-right', adjust:'fa-sliders', fade:'fa-circle-half-stroke', denoise:'fa-broom', sharpenblur:'fa-eye', speed:'fa-bolt', pad:'fa-expand', volume:'fa-volume-high' };
 
+// ── Batch mode state ─────────────────────────────────
+let batchMode = false;
+const batchQueue = [];  // Array of {file, status: 'pending'|'processing'|'done'|'error', error?: string}
+let batchCurrent = null;  // Index of currently processing file
+
 // ── Expose to inline handlers ─────────────────────────
 Object.assign(window, {
-  loadFFmpeg, handleFile, clearInput, setOp,
+  loadFFmpeg, handleFile, handleFileInput, clearInput, setOp,
   updateTrim, runProcess, download, clearLog, updateSizeEstimate, updateRawPreview,
   resetCropSelection,
   onRawInput2Change, onSubtitleFileChange,
   onOverlayFileChange, onMixAudioFileChange, onConcatFileChange,
   onSxsFileChange, onPipFileChange,
-  setMode, addToStack, removeStackItem, moveStackItem, updateStackPreview, runProcessStack
+  setMode, addToStack, removeStackItem, moveStackItem, updateStackPreview, runProcessStack,
+  toggleBatchMode, clearBatchQueue, removeBatchFile
 });
 
 function onSubtitleFileChange(input) {
@@ -1456,6 +1485,16 @@ async function loadFFmpeg() {
 }
 
 // ── File handling ─────────────────────────────────────
+function handleFileInput(input) {
+  if (!input.files) return;
+  if (batchMode) {
+    handleBatchFiles(input.files);
+  } else {
+    handleFile(input.files[0]);
+  }
+  input.value = '';  // Reset so same file can be added again
+}
+
 async function handleFile(file) {
   if (!file) return;
   inputFile = file;
@@ -1498,6 +1537,7 @@ async function handleFile(file) {
 }
 
 function clearInput() {
+  if (batchMode) return;  // Don't clear in batch mode
   inputFile = null;
   document.getElementById('inputVideo').src = '';
   document.getElementById('inputWrap').classList.add('hidden');
@@ -1505,6 +1545,85 @@ function clearInput() {
   setCropFromPixels({ x: 0, y: 0, w: 0, h: 0 });
   syncProcessBtn();
   updateSizeEstimate();
+}
+
+// ── Batch mode functions ─────────────────────────────
+function toggleBatchMode() {
+  batchMode = !batchMode;
+  const btn = document.getElementById('batchToggle');
+  const queueList = document.getElementById('batchQueueList');
+  const dropZoneText = document.getElementById('dropZoneText');
+  const fileInput = document.getElementById('fileInput');
+  
+  if (batchMode) {
+    btn.classList.add('active');
+    queueList.classList.add('visible');
+    dropZoneText.innerHTML = '<strong>Click to add files</strong> or drag & drop multiple files';
+    fileInput.multiple = true;
+    clearInput();
+    batchQueue.length = 0;
+    updateBatchQueueUI();
+    addLog('Batch mode enabled. Drop multiple files to queue them.', 'ok');
+  } else {
+    btn.classList.remove('active');
+    queueList.classList.remove('visible');
+    dropZoneText.innerHTML = '<strong>Click to choose</strong> or drag & drop local file';
+    fileInput.multiple = false;
+    batchQueue.length = 0;
+    batchCurrent = null;
+    updateBatchQueueUI();
+    addLog('Batch mode disabled. Single file mode active.', 'ok');
+  }
+}
+
+function handleBatchFiles(files) {
+  if (!batchMode) return;
+  for (const file of files) {
+    if (file.type.startsWith('video/') || file.type === 'image/gif') {
+      batchQueue.push({
+        file,
+        status: 'pending',
+        error: null,
+        output: null
+      });
+    }
+  }
+  updateBatchQueueUI();
+  addLog(`Added ${batchQueue.length} file(s) to batch queue.`, 'ok');
+}
+
+function updateBatchQueueUI() {
+  const counter = document.getElementById('batchQueueCounter');
+  const items = document.getElementById('batchQueueItems');
+  
+  counter.textContent = `${batchQueue.length} file${batchQueue.length !== 1 ? 's' : ''} queued`;
+  
+  items.innerHTML = batchQueue.map((item, i) => `
+    <div class="batch-file-item">
+      <div class="batch-file-status ${item.status}">
+        ${item.status === 'pending' ? '<i class="fas fa-hourglass-end"></i>' : 
+          item.status === 'processing' ? '<i class="fas fa-spinner fa-spin"></i>' :
+          item.status === 'done' ? '<i class="fas fa-check"></i>' :
+          '<i class="fas fa-exclamation"></i>'}
+      </div>
+      <div class="batch-file-name" title="${item.file.name}">${item.file.name}</div>
+      <div class="batch-file-remove" onclick="removeBatchFile(${i})" title="Remove">
+        <i class="fas fa-trash-can"></i>
+      </div>
+    </div>
+  `).join('');
+}
+
+function removeBatchFile(index) {
+  batchQueue.splice(index, 1);
+  updateBatchQueueUI();
+}
+
+function clearBatchQueue() {
+  batchQueue.length = 0;
+  batchCurrent = null;
+  updateBatchQueueUI();
+  addLog('Batch queue cleared.', 'ok');
 }
 
 // ── Trim ──────────────────────────────────────────────
