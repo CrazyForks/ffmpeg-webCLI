@@ -17,6 +17,8 @@ A browser-based video editor powered by [ffmpeg.wasm](https://github.com/ffmpegw
 
 ✓ **30+ Video Operations** : GIF creation, format conversion, compression, trimming, effects, filters, and more
 
+✓ **Batch Processing** : Process multiple videos at once with the same operation; real-time progress, per-file downloads, and graceful fallback
+
 ✓ **Offline-First PWA** : Works completely offline after first use; install as a native app
 
 ✓ **Screen Wake Lock** : Screen stays active during video processing on any device
@@ -71,7 +73,32 @@ ffmpeg -i input.mp4 -vf "crop=1280:720:0:0,eq=brightness=0:contrast=1:saturation
 
 **Chainable:** Crop, Resize, Rotate/Flip, Adjust (brightness/contrast/saturation), Grayscale, Fade, Denoise, Sharpen/Blur, Speed, Pad/Letterbox and Volume — every single-input, frame-wise video/audio filter.
 
-**Not chainable** (use Single mode): multi-input operations (Concatenate, Side by Side, Picture in Picture, Mix Audio, Embed Subtitles, Logo Overlay) and whole-file or different-output operations (GIF, Thumbnail, Reverse, Boomerang, Loop, Media Info). These are disabled in Stack mode with an inline explanation.
+**Not chainable** (use Single mode): multi-input operations (Concatenate, Side by Side, Picture in Picture, Mix Audio, Embed Subtitles, Logo Overlay) and whole-file or different-output operations (GIF, Thumbnail, Boomerang, Media Info). These are disabled in Stack mode with an inline explanation.
+
+### ▶ Batch Processing
+Process multiple video files with the same operation in a single session. Click the **Batch** toggle in the Input Video card to enable batch mode, then drop or select multiple files. Each file is queued with a status indicator:
+- ⏳ **Pending** : queued, waiting to process
+- ▶ **Processing** : currently encoding
+- ✓ **Done** : completed successfully
+- ✗ **Error** : encountered an issue
+
+When you click **Process Queue**, ffmpeg runs through each file sequentially. The log shows real-time progress: `[X/total] Processing: filename`. Each file produces its own output with individual **Download** buttons — no need to wait for the entire batch to finish before downloading completed files.
+
+**Graceful Fallback:** If you have a video already loaded and enable batch mode, the app automatically adds it to the queue so you don't lose your work.
+
+**Supported Operations in Batch Mode** (26 total):
+- All single-input filters: Resize, Speed, Fade, Denoise, Sharpen/Blur, Adjust, Grayscale, Rotate/Flip, Volume, Pad, Audio Extract, Mute, Strip Metadata, Reverse, Loop, Normalize Audio
+- Format conversion and compression across all output formats (MP4, WebM, MKV, MOV, AVI, GIF, MP3, AAC, WAV, OGG, FLAC)
+
+**Unsupported in Batch Mode** (operations require per-file configuration or multi-input coordination):
+- **Crop** : Dimension-dependent; different videos may need different crop values
+- **Overlay** (Logo) : Requires selecting a separate image file for each batch item
+- **Multi-input ops** : Concatenate, Side by Side, Picture in Picture, Mix Audio, Embed Subtitles
+- **Whole-file effects** : Boomerang (special reversal effect)
+- **Informational** : Media Info (displays metadata, doesn't process)
+- **Unpredictable** : Raw FFmpeg (user-defined commands differ per file)
+
+These operations are visually greyed out in batch mode to prevent accidental selection.
 
 ### ▶ GIF Maker
 Convert any video clip into an animated GIF. Set the frame rate and output width; height scales automatically to preserve the aspect ratio. Uses a two-pass palette generation for the best possible color quality.
@@ -120,7 +147,7 @@ Trim the frame to a specific region. X/Y offset and width/height are auto-filled
 Pull a single frame from any point in the video and save it as a **JPEG** or **PNG** image. The timestamp field is pre-filled to the midpoint of the loaded clip.
 
 ### ⟲ Reverse
-Play the video (and audio) backwards using ffmpeg's `reverse` + `areverse` filters.
+Play the video (and audio) backwards using ffmpeg's `reverse` + `areverse` filters. **Supported in batch mode** — reverses each video independently without re-encoding overhead.
 
 ### ▨ Fade In / Out
 Add a smooth fade-in, fade-out, or both. Set the duration in seconds for each direction independently; the filter is applied after any trim.
@@ -142,7 +169,7 @@ Video and audio are stream-copied (zero quality loss, near-instant). Hard-burnin
 Boost or reduce the audio level of any video. A single slider sets the **volume multiplier** (0 = silence, 1.0 = unchanged, up to 4×). Audio is re-encoded using the `volume` filter; the video stream is stream-copied (no quality loss, no re-encode overhead).
 
 ### ⟲ Loop / Repeat
-Play the video N times back-to-back in a single output file. Set **Total plays** (2–50); ffmpeg uses `-stream_loop` with stream copy so there is no re-encoding and the output file is proportionally larger. Trim is not applied for this operation.
+Play the video N times back-to-back in a single output file. Set **Total plays** (2–50); ffmpeg uses `-stream_loop` with stream copy so there is no re-encoding and the output file is proportionally larger. Trim is not applied for this operation. **Supported in batch mode** — each video loops independently with no re-encoding, making it ideal for batch processing repeated content.
 
 ### ▭ Logo / Image Overlay
 Stamp a logo, watermark, or any image (PNG with transparency works best) onto every frame. Controls:
