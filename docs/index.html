@@ -1140,6 +1140,9 @@ let stackSeq  = 0;
 const CHAINABLE = new Set(['crop','resizecompress','rotate','adjust','fade','denoise','sharpenblur','speed','pad','volume']);
 const STACK_ICON = { crop:'fa-crop-simple', resizecompress:'fa-compress', rotate:'fa-rotate-right', adjust:'fa-sliders', fade:'fa-circle-half-stroke', denoise:'fa-broom', sharpenblur:'fa-eye', speed:'fa-bolt', pad:'fa-expand', volume:'fa-volume-high' };
 
+// Operations unsupported in batch mode (multi-input, whole-file, or dimension-dependent)
+const BATCH_UNSUPPORTED = new Set(['crop', 'concat', 'sxs', 'pip', 'mixaudio', 'overlay', 'subtitles', 'reverse', 'loop', 'boomerang', 'info', 'raw']);
+
 // ── Batch mode state ─────────────────────────────────
 let batchMode = false;
 const batchQueue = [];  // Array of {file, status: 'pending'|'processing'|'done'|'error', error?: string}
@@ -1607,6 +1610,7 @@ function toggleBatchMode() {
     addLog('Batch mode disabled. Single file mode active.', 'ok');
   }
   syncProcessBtn();
+  updateBatchTileStates();
 }
 
 function handleBatchFiles(files) {
@@ -1624,6 +1628,16 @@ function handleBatchFiles(files) {
   updateBatchQueueUI();
   addLog(`Added ${batchQueue.length} file(s) to batch queue.`, 'ok');
   syncProcessBtn();
+}
+
+function updateBatchTileStates() {
+  // Update operation tiles to show disabled state for batch-unsupported ops when in batch mode
+  document.querySelectorAll('.op-tile').forEach(tile => {
+    const opId = tile.id.replace('op-', '');
+    const isDisabledByStack = stackMode && !CHAINABLE.has(opId);
+    const isDisabledByBatch = batchMode && BATCH_UNSUPPORTED.has(opId);
+    tile.classList.toggle('disabled', isDisabledByStack || isDisabledByBatch);
+  });
 }
 
 function updateBatchQueueUI() {
@@ -1731,6 +1745,12 @@ function setOp(op) {
     const note = document.getElementById('addStackNote');
     note.classList.remove('hidden');
     note.innerHTML = '<i class="fas fa-circle-info"></i> &ldquo;' + name + '&rdquo; is multi-input or whole-file and can&rsquo;t be chained. Use Single mode for it.';
+    return;
+  }
+  
+  if (batchMode && BATCH_UNSUPPORTED.has(op)) {
+    const name = (document.getElementById('op-' + op)?.textContent || op).trim();
+    addLog(`⚠ &ldquo;${name}&rdquo; is not supported in batch mode. It requires per-file configuration or is a multi-input operation.`, 'warn');
     return;
   }
   
@@ -3313,6 +3333,7 @@ function setMode(mode) {
   updateSizeEstimate();
   refreshStackControls();
   renderStack();
+  updateBatchTileStates();
 }
 
 // ── Process stack ─────────────────────────────────────
