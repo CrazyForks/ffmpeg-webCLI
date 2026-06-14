@@ -17,7 +17,7 @@ A browser-based video editor powered by [ffmpeg.wasm](https://github.com/ffmpegw
 
 ✓ **30+ Video Operations** : GIF creation, format conversion, compression, trimming, effects, filters, and more
 
-✓ **Batch Processing** : Process multiple videos at once with the same operation; real-time progress, per-file downloads, and graceful fallback
+✓ **Batch Processing** : Process multiple videos at once with the same operation — or an entire **operation chain** — applied to every file; real-time progress, per-file preview, individual downloads, ZIP-all, and graceful fallback
 
 ✓ **Offline-First PWA** : Works completely offline after first use; install as a native app
 
@@ -75,6 +75,8 @@ ffmpeg -i input.mp4 -vf "crop=1280:720:0:0,eq=brightness=0:contrast=1:saturation
 
 **Not chainable** (use Single mode): multi-input operations (Concatenate, Side by Side, Picture in Picture, Mix Audio, Embed Subtitles, Logo Overlay) and whole-file or different-output operations (GIF, Thumbnail, Boomerang, Media Info). These are disabled in Stack mode with an inline explanation.
 
+**Chaining + batch together:** Stack mode and batch mode combine — enable **Batch**, queue several files, switch to **Stack (chain)**, build your chain once, and click **Process Stack** to apply the *entire* chain to *every* queued file. Each file is composed against its own dimensions/duration (so crop, pad, and fade resolve per file) and encoded in a single pass, with results shown in the batch outputs panel.
+
 ### ▶ Batch Processing
 Process multiple video files with the same operation in a single session. Click the **Batch** toggle in the Input Video card to enable batch mode, then drop or select multiple files. Each file is queued with a status indicator:
 - ⏳ **Pending** : queued, waiting to process
@@ -82,7 +84,9 @@ Process multiple video files with the same operation in a single session. Click 
 - ✓ **Done** : completed successfully
 - ✗ **Error** : encountered an issue
 
-When you click **Process Queue**, ffmpeg runs through each file sequentially. The log shows real-time progress: `[X/total] Processing: filename`. Each file produces its own output with individual **Download** buttons — no need to wait for the entire batch to finish before downloading completed files.
+When you click **Process Queue**, ffmpeg runs through each file sequentially. The log shows real-time progress: `[X/total] Processing: filename`. Completed files appear in the **Batch Outputs** panel of the Output section, where you can pick any file to preview it in the player, download files individually, or grab everything at once with **ZIP All** — no need to wait for the entire batch to finish before downloading completed files.
+
+**Batch + Stack (chaining):** Batch isn't limited to a single operation. Switch the Operations panel to **Stack (chain)** while batch mode is on, build a chain, and **Process Stack** applies the whole chain to every queued file in one pass each. See [Operation Chaining](#-operation-chaining-stack-mode) above.
 
 **Graceful Fallback:** If you have a video already loaded and enable batch mode, the app automatically adds it to the queue so you don't lose your work.
 
@@ -299,6 +303,7 @@ Video is re-encoded to H.264; audio is stream-copied.
 This project is maintained with community feedback. Key features and improvements from user requests and contributions:
 
 - **Operation Chaining (Stack Mode)** — [#2](https://github.com/tejaswigowda/ffmpeg-webCLI/issues/2): Queue and compose multiple compatible operations into a single filter chain and execute in one pass, avoiding quality loss from repeated re-encoding.
+- **Batch + Chaining**: Stack mode and batch mode now work together — apply a full operation chain to every file in a batch, with per-file preview, individual downloads, and ZIP-all.
 - [PR #1](https://github.com/tejaswigowda/ffmpeg-webCLI/pull/1): Community contributions and improvements to the codebase.
 
 ---
