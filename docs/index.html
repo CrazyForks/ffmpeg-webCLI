@@ -2381,6 +2381,14 @@ async function runProcess() {
             sampleRate: 16000,
             onModelProgress: updateProgress,
             onProgress: updateProgress,
+            onStatus: (status) => {
+              // Reset progress bar to 0% when transcription starts
+              if (status.stage === 'transcribing') {
+                document.getElementById('progPct').textContent = '0%';
+                document.getElementById('progFill').style.width = '0%';
+                document.getElementById('progLabel').textContent = 'Transcribing…';
+              }
+            },
           });
           
           autoCaptionSegments = segments;
