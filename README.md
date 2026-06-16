@@ -15,7 +15,7 @@ A browser-based video editor powered by [ffmpeg.wasm](https://github.com/ffmpegw
 
 ✓ **No Server Uploads** : All video processing happens entirely on your device
 
-✓ **30+ Video Operations** : GIF creation, format conversion, compression, trimming, effects, filters, and more
+✓ **32+ Video Operations** : GIF creation, format conversion, compression, trimming, effects, filters, auto-captioning, and more
 
 ✓ **Batch Processing** : Process multiple videos at once with the same operation — or an entire **operation chain** — applied to every file; real-time progress, per-file preview, individual downloads, ZIP-all, and graceful fallback
 
@@ -48,6 +48,7 @@ A browser-based video editor powered by [ffmpeg.wasm](https://github.com/ffmpegw
 | Metadata2go | Strip metadata |
 | Subtitle Horse | Embed subtitles |
 | Kapwing (side-by-side) | Side by side, picture-in-picture |
+| Rev / Scribd | Auto-captioning, transcript editing |
 | Loudnorm tools | Audio normalization |
 
 **The difference that matters:** every one of those tools uploads your file to a
@@ -169,6 +170,34 @@ Mux an `.srt`, `.vtt`, or `.ass` subtitle file into the video as a **soft subtit
 - **MKV** : subtitle stream copied natively (preserves ASS/SSA styling)
 
 Video and audio are stream-copied (zero quality loss, near-instant). Hard-burning subtitles into the picture requires a libass-enabled ffmpeg build and is not available in the standard WebAssembly core.
+
+### 🎤 Auto-Caption (Whisper)
+Generate **automatic captions** from speech using [OpenAI's Whisper](https://openai.com/research/whisper) model, running entirely on-device via [Transformers.js](https://xenova.github.io/transformers.js/). Edit the transcript before embedding it as soft subtitles.
+
+**Workflow:**
+1. **Extract** : Audio is extracted from the video at 16 kHz mono
+2. **Transcribe** : Whisper processes the audio in 30-second chunks with 5-second overlap to generate accurate captions
+3. **Review & Edit** : Transcript appears in a textarea as SRT format — edit any caption before embedding
+4. **Embed** : Click **Confirm & Embed** to mux the subtitles as a soft track into the output video (same format options as Embed Subtitles)
+
+**Model Selection** (choose speed vs. accuracy):
+- **Tiny** (39 MB) : Fastest, lower quality — good for quick turnarounds or speech-only content
+- **Base** (140 MB) : Balanced speed and accuracy — recommended for most videos
+- **Small** (466 MB) : Higher quality, slower — best for heavily accented or technical speech
+
+Models are lazy-loaded and cached on first use (~15–30 seconds for initial download, then instant on subsequent runs).
+
+**Output Format:**
+- **MP4** : subtitle stream encoded as `mov_text`
+- **MKV** : subtitle stream copied natively
+
+**Key Features:**
+- ✓ 100% on-device (no API calls, no uploads)
+- ✓ Generates SRT timestamps with millisecond precision
+- ✓ Edit captions directly in the textarea (reset or confirm changes)
+- ✓ Real-time progress bar (0–100%) during transcription
+- ✓ Sequential memory management: Whisper model is disposed before FFmpeg re-engages to prevent out-of-memory errors
+- ✓ Works with any video duration or language (defaults to English, auto-detectable per Whisper)
 
 ### ◆ Volume
 Boost or reduce the audio level of any video. A single slider sets the **volume multiplier** (0 = silence, 1.0 = unchanged, up to 4×). Audio is re-encoded using the `volume` filter; the video stream is stream-copied (no quality loss, no re-encode overhead).

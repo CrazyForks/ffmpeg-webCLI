@@ -411,6 +411,7 @@
             <button class="op-tile" id="op-fade"          onclick="setOp('fade')"><i class="fas fa-circle-half-stroke"></i> Fade In/Out</button>
             <button class="op-tile" id="op-adjust"        onclick="setOp('adjust')"><i class="fas fa-sliders"></i> Adjust</button>
             <button class="op-tile" id="op-stripmeta"     onclick="setOp('stripmeta')"><i class="fas fa-ban"></i> Strip Metadata</button>
+            <button class="op-tile" id="op-autocaption"   onclick="setOp('autocaption')"><i class="fas fa-microphone-lines"></i> Auto-Caption</button>
             <button class="op-tile" id="op-subtitles"     onclick="setOp('subtitles')"><i class="fas fa-closed-captioning"></i> Embed Subtitles</button>
             <button class="op-tile" id="op-volume"        onclick="setOp('volume')"><i class="fas fa-volume-high"></i> Volume</button>
             <button class="op-tile" id="op-loop"          onclick="setOp('loop')"><i class="fas fa-repeat"></i> Loop</button>
@@ -682,6 +683,38 @@
               </div>
             </div>
             <p class="hint" style="margin-top:8px"><strong style="color:var(--text)">Soft subtitles are the preferred format for VLC, browser players, and most video platforms. Hard-burning for social media requires a libass build.</strong></p>
+          </div>
+
+          <!-- Auto-Caption (Whisper-powered speech-to-text) -->
+          <div class="op-panel hidden" id="panel-autocaption">
+            <h4>Auto-Caption (Whisper)</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="lbl">Whisper Model</label>
+                <select id="autoCaptionModel" onchange="updateAutoCaptionInfo()">
+                  <option value="tiny" selected>Tiny (39 MB) — fast, lower quality</option>
+                  <option value="base">Base (140 MB) — balanced</option>
+                  <option value="small">Small (466 MB) — higher quality, slower</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="lbl">Output Format</label>
+                <select id="autoCaptionFmt">
+                  <option value="mp4">MP4 -- mov_text track</option>
+                  <option value="mkv">MKV -- native subtitle stream</option>
+                </select>
+              </div>
+            </div>
+            <p class="hint" id="autoCaptionInfo">Base model is recommended for most videos. Downloads and caches on first use.</p>
+            <div id="autoCaptionTranscriptPanel" class="hidden" style="margin-top:12px;border:1px solid var(--border);border-radius:7px;padding:10px;max-height:300px;overflow-y:auto;background:var(--surface)">
+              <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase">Transcript (Editable)</div>
+              <textarea id="autoCaptionTranscript" style="width:100%;min-height:120px;max-height:200px;font-size:0.78rem" placeholder="Transcript will appear here. You can edit it before embedding."></textarea>
+              <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
+                <button class="btn btn-ghost btn-sm" onclick="clearAutoCaptionTranscript()"><i class="fas fa-redo"></i> Reset</button>
+                <button class="btn btn-success btn-sm" onclick="confirmAutoCaptionTranscript()"><i class="fas fa-check"></i> Confirm & Embed</button>
+              </div>
+            </div>
+            <p class="hint" style="margin-top:8px"><strong style="color:var(--text)">Process is 100% local:</strong> audio is extracted, transcribed on-device with Whisper via Transformers.js, and embedded as soft subtitles. Zero data leaves your browser.</p>
           </div>
 
           <!-- Volume -->
@@ -1126,6 +1159,11 @@ let mixAudioFile  = null; let mixAudioExt   = '';
 let concatFile    = null; let concatExt     = '';
 let sxsFile       = null; let sxsExt        = '';
 let pipFile       = null; let pipExt        = '';
+// Auto-Caption: Whisper transcription workflow
+let autoCaptionTranscriber = null;  // Transcriber instance (reusable across multiple files)
+let autoCaptionSegments = null;     // Segments from transcription before editing
+let autoCaptionSRT = null;          // Generated SRT content (editable by user)
+let autoCaptionInProgress = false;  // Track if transcription is in progress
 const CROP_MIN_PX = 24;
 const cropState = { x: 0, y: 0, w: 0, h: 0, drag: null };
 
@@ -1142,7 +1180,7 @@ const CHAINABLE = new Set(['crop','resizecompress','rotate','adjust','fade','den
 const STACK_ICON = { crop:'fa-crop-simple', resizecompress:'fa-compress', rotate:'fa-rotate-right', adjust:'fa-sliders', fade:'fa-circle-half-stroke', denoise:'fa-broom', sharpenblur:'fa-eye', speed:'fa-bolt', pad:'fa-expand', volume:'fa-volume-high' };
 
 // Operations unsupported in batch mode (multi-input, memory-intensive buffering, whole-file special handling, or informational)
-const BATCH_UNSUPPORTED = new Set(['crop', 'concat', 'sxs', 'pip', 'mixaudio', 'overlay', 'subtitles', 'reverse', 'boomerang', 'info', 'raw']);
+const BATCH_UNSUPPORTED = new Set(['crop', 'concat', 'sxs', 'pip', 'mixaudio', 'overlay', 'subtitles', 'autocaption', 'reverse', 'boomerang', 'info', 'raw']);
 
 // ── Batch mode state ─────────────────────────────────
 let batchMode = false;
@@ -1797,6 +1835,8 @@ function setOp(op) {
   
   // Handle GIF format selection: auto-lock to GIF output, disable dropdown
   const outFmtDropdown = document.getElementById('singleOutFmt');
+  const outFmtWrap = document.getElementById('singleOutFmtWrap');
+  
   if (currentOp !== 'gif' && op === 'gif') {
     // Switching TO gif: save current format and lock to gif
     lastFormatBeforeGif = outFmtDropdown.value;
@@ -1806,6 +1846,13 @@ function setOp(op) {
     // Switching AWAY from gif: restore previous format and unlock
     outFmtDropdown.value = lastFormatBeforeGif;
     outFmtDropdown.disabled = false;
+  }
+  
+  // Hide general output format selector for Auto-Caption (it has its own format selector)
+  if (op === 'autocaption' && outFmtWrap) {
+    outFmtWrap.classList.add('hidden');
+  } else if (currentOp === 'autocaption' && outFmtWrap) {
+    outFmtWrap.classList.remove('hidden');
   }
   
   currentOp = op;
@@ -1887,6 +1934,7 @@ function updateSizeEstimate() {
     case 'adjust':   { estimated = srcSize * (dur / vidDur); break; }
     case 'stripmeta':  { estimated = srcSize * 0.99; break; }
     case 'subtitles':  { wrap.classList.add('hidden'); return; }
+    case 'autocaption': { wrap.classList.add('hidden'); return; }
     case 'volume':   { estimated = srcSize * (dur / vidDur); break; }
     case 'overlay':  { estimated = srcSize * (dur / vidDur); break; }
     case 'mixaudio': { estimated = srcSize * (dur / vidDur); break; }
@@ -2270,6 +2318,86 @@ async function runProcess() {
         const subsCodec = ext === 'mkv' ? 'copy' : 'mov_text';
         args.push('-c:v','copy','-c:a','copy','-c:s', subsCodec,'-map','0','-map','1');
         break;
+      }
+      case 'autocaption': {
+        // ── AUTO-CAPTION WORKFLOW (Multi-Stage) ──
+        // 1. Extract audio from video
+        // 2. Initialize Transcriber and transcribe audio
+        // 3. Show transcript for user editing
+        // 4. On confirmation, embed subtitles into video
+        // CRITICAL: Memory handoff between ffmpeg and whisper to avoid OOM
+        
+        ext = document.getElementById('autoCaptionFmt').value;
+        const model = document.getElementById('autoCaptionModel').value;
+        
+        try {
+          // Disable button during processing
+          document.getElementById('processBtn').disabled = true;
+          
+          // Show main progress bar for transcription
+          const pw = document.getElementById('progWrap');
+          pw.classList.remove('hidden');
+          document.getElementById('autoCaptionTranscriptPanel').classList.add('hidden');
+          addLog(`Starting Auto-Caption with ${model} model\u2026`, 'ok');
+          
+          // STEP 1: Extract audio to float32 at 16 kHz
+          addLog('Stage 1/3: Extracting audio\u2026', 'ok');
+          const audioBuffer = await extractAudioAsWAV();
+          
+          // STEP 2: Initialize Transcriber and transcribe
+          addLog('Stage 2/3: Transcribing with Whisper\u2026', 'ok');
+          
+          // Initialize main progress bar to 0%
+          document.getElementById('progPct').textContent = '0%';
+          document.getElementById('progFill').style.width = '0%';
+          document.getElementById('progLabel').textContent = 'Loading model\u2026';
+          
+          const transcriber = await initializeAutoCaptionTranscriber();
+          
+          // Create progress UI updater for transcription
+          const updateProgress = (prog) => {
+            if (prog.pct !== undefined) {
+              document.getElementById('progPct').textContent = `${prog.pct}%`;
+              const fill = document.getElementById('progFill');
+              fill.style.width = `${prog.pct}%`;
+              document.getElementById('progLabel').textContent = prog.label || 'Transcribing\u2026';
+            }
+          };
+          
+          const segments = await transcriber.transcribe(audioBuffer, {
+            model: model,
+            sampleRate: 16000,
+            onModelProgress: updateProgress,
+            onProgress: updateProgress,
+          });
+          
+          autoCaptionSegments = segments;
+          
+          // Ensure main progress bar is at 100%
+          document.getElementById('progPct').textContent = '100%';
+          document.getElementById('progFill').style.width = '100%';
+          
+          addLog(`Transcription complete: ${segments.length} segments`, 'ok');
+          
+          // STEP 3: Show transcript for editing
+          addLog('Stage 3/3: Ready for review\u2026', 'ok');
+          updateAutoCaptionTranscript();
+          pw.classList.add('hidden');
+          
+          // Re-enable button for user to click "Confirm & Embed"
+          document.getElementById('processBtn').disabled = false;
+          
+          // Wait for user to confirm transcript or make edits
+          // User will click "Confirm & Embed" button which calls confirmAutoCaptionTranscript()
+          // For now, we're done with the automatic part
+          return; // Early return - don't execute ffmpeg yet
+          
+        } catch (err) {
+          pw.classList.add('hidden');
+          const errorMsg = err && err.message ? err.message : (err ? String(err) : 'Unknown error');
+          addLog(`Auto-Caption error: ${errorMsg}`, 'err');
+          document.getElementById('processBtn').disabled = false;
+        }
       }
       case 'volume': {
         const vol = parseFloat(document.getElementById('volRange').value).toFixed(3);
@@ -3827,6 +3955,251 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
+
+// ── Auto-Caption (Whisper Integration) Helper Functions ──────────────────────
+/**
+ * Update info text based on selected Whisper model.
+ */
+function updateAutoCaptionInfo() {
+  const model = document.getElementById('autoCaptionModel').value;
+  const sizeMap = { tiny: '39 MB', base: '140 MB', small: '466 MB', medium: '1.5 GB' };
+  const qualityMap = { tiny: 'Lower quality, very fast', base: 'Balanced quality & speed (recommended)', small: 'Higher quality, slower', medium: 'Best quality, very slow' };
+  const infoEl = document.getElementById('autoCaptionInfo');
+  infoEl.textContent = `${model} model (${sizeMap[model]}): ${qualityMap[model]}. Downloads and caches on first use.`;
+}
+
+/**
+ * Lazily initialize the Transcriber. Reused across multiple transcriptions to avoid
+ * repeated model downloads. NOTE: Must be explicitly disposed to free memory before
+ * re-engaging ffmpeg.
+ */
+async function initializeAutoCaptionTranscriber(onProgress) {
+  if (!autoCaptionTranscriber) {
+    // Dynamically import Transcriber from the vendored module
+    const { Transcriber } = await import('./transcriber.js');
+    autoCaptionTranscriber = new Transcriber();
+  }
+  return autoCaptionTranscriber;
+}
+
+/**
+ * Extract audio from video and convert to WAV (16 kHz mono PCM).
+ * Returns Float32Array of audio samples at 16 kHz.
+ * 
+ * ── MEMORY MANAGEMENT NOTE ──
+ * This runs ffmpeg extraction. After this completes, ffmpeg's working buffers
+ * should be freed before loading the transcriber to avoid resident memory peaks.
+ */
+async function extractAudioAsWAV() {
+  try {
+    addLog('Extracting audio track...', 'ok');
+    const inName = 'input.' + inputExt;
+    
+    addLog(`Using input file: ${inName}`, 'log');
+    
+    // Extract audio as 16-bit PCM WAV at 16 kHz (Whisper's required format)
+    // Explicitly specify output format and use -y to overwrite
+    const args = ['-i', inName, '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', '-f', 'wav', '-y', 'audio.wav'];
+    const exitCode = await ffmpeg.exec(args);
+    
+    if (exitCode !== 0) {
+      throw new Error(`ffmpeg audio extraction failed with exit code ${exitCode}`);
+    }
+    
+    addLog('Reading audio data...', 'ok');
+    const wavData = await ffmpeg.readFile('audio.wav');
+    if (!wavData || wavData.length === 0) {
+      throw new Error('Audio file is empty or could not be read');
+    }
+    
+    const wavBuf = wavData.buffer.slice(wavData.byteOffset, wavData.byteOffset + wavData.byteLength);
+    
+    // Parse WAV: skip 44-byte header, read s16 samples, convert to float32
+    const view = new DataView(wavBuf);
+    const numSamples = Math.floor((wavBuf.byteLength - 44) / 2);
+    if (numSamples <= 0) {
+      throw new Error(`Invalid WAV data: file size ${wavBuf.byteLength}`);
+    }
+    
+    const float32Audio = new Float32Array(numSamples);
+    for (let i = 0; i < numSamples; i++) {
+      const s16 = view.getInt16(44 + i * 2, true); // little-endian
+      float32Audio[i] = s16 / 32768.0; // normalize to [-1, 1]
+    }
+    
+    addLog(`Extracted ${(numSamples / 16000).toFixed(2)}s of audio (${numSamples} samples @ 16 kHz)`, 'ok');
+    
+    // ── MEMORY MANAGEMENT: Clean up extracted WAV from ffmpeg filesystem ──
+    try {
+      await ffmpeg.deleteFile('audio.wav');
+    } catch (e) {
+      addLog(`Warning: Could not delete audio.wav: ${e.message || String(e)}`, 'log');
+    }
+    
+    return float32Audio;
+  } catch (err) {
+    const errorMsg = err && err.message ? err.message : (err ? String(err) : 'Unknown error');
+    addLog(`Error extracting audio: ${errorMsg}`, 'err');
+    throw err;
+  }
+}
+
+/**
+ * Convert transcription segments to SRT format (HH:MM:SS,mmm).
+ */
+function segmentsToSRT(segments) {
+  if (!segments || segments.length === 0) {
+    return '';
+  }
+  
+  const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 1000);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
+  };
+  
+  return segments
+    .map((seg, i) => `${i + 1}\n${formatTime(seg.start)} --> ${formatTime(seg.end)}\n${seg.text}\n`)
+    .join('\n');
+}
+
+/**
+ * Update transcript text area with current segments as editable SRT.
+ */
+function updateAutoCaptionTranscript() {
+  if (!autoCaptionSegments) return;
+  const srt = segmentsToSRT(autoCaptionSegments);
+  autoCaptionSRT = srt;
+  document.getElementById('autoCaptionTranscript').value = srt;
+  document.getElementById('autoCaptionTranscriptPanel').classList.remove('hidden');
+}
+
+/**
+ * Clear/reset the transcript.
+ */
+function clearAutoCaptionTranscript() {
+  document.getElementById('autoCaptionTranscript').value = '';
+  autoCaptionSRT = '';
+  document.getElementById('autoCaptionTranscriptPanel').classList.add('hidden');
+}
+
+/**
+ * Confirm edited transcript and embed as subtitles.
+ * This is called after the user reviews and edits the transcript.
+ */
+async function confirmAutoCaptionTranscript() {
+  try {
+    // Disable button during embedding
+    document.getElementById('processBtn').disabled = true;
+    
+    autoCaptionSRT = document.getElementById('autoCaptionTranscript').value;
+    if (!autoCaptionSRT.trim()) {
+      throw new Error('Transcript is empty');
+    }
+    
+    // Save SRT content before cleanup
+    const srtContent = autoCaptionSRT;
+    
+    addLog('Writing SRT subtitle file…', 'ok');
+    await ffmpeg.writeFile('autogen.srt', new TextEncoder().encode(srtContent));
+    
+    // ── MEMORY MANAGEMENT: Clean up Transcriber & model weights before re-engaging ffmpeg ──
+    // This is CRITICAL to avoid OOM when both ffmpeg and whisper are resident.
+    addLog('Releasing transcription engine from memory…', 'ok');
+    if (autoCaptionTranscriber && typeof autoCaptionTranscriber.dispose === 'function') {
+      try {
+        await autoCaptionTranscriber.dispose();
+      } catch (e) {
+        // Ignore if disposal fails
+      }
+    }
+    autoCaptionTranscriber = null;
+    autoCaptionSegments = null;
+    autoCaptionSRT = null;
+    
+    // Force garbage collection hint (non-standard but helps some engines)
+    if (typeof gc === 'function') gc();
+    
+    addLog('Embedding subtitles…', 'ok');
+    
+    // Use user-selected format with appropriate subtitle codec
+    // MP4 uses mov_text, MKV uses native SRT copy
+    const fmt = (document.getElementById('autoCaptionFmt').value || 'mp4').trim().toLowerCase();
+    if (!fmt || (fmt !== 'mp4' && fmt !== 'mkv')) {
+      throw new Error(`Invalid format: ${fmt}`);
+    }
+    
+    const inName = 'input.' + inputExt;
+    const outName = 'output.' + fmt;
+    const subsCodec = fmt === 'mkv' ? 'copy' : 'mov_text';
+    
+    addLog(`Input file: ${inName}, Output: ${outName}, Format: ${fmt}, Subtitle codec: ${subsCodec}`, 'ok');
+    
+    // Reset args like the Embed Subtitles case does
+    const args = [];
+    args.push('-i', inName, '-i', 'autogen.srt');
+    args.push('-c:v', 'copy', '-c:a', 'copy', '-c:s', subsCodec, '-map', '0', '-map', '1');
+    args.push(outName);
+    
+    addLog(`ffmpeg ${args.join(' ')}`, 'ok');
+    
+    const exitCode = await ffmpeg.exec(args);
+    
+    if (exitCode !== 0) throw new Error(`ffmpeg subtitle embedding failed with code ${exitCode}. Check FFmpeg log above for details.`);
+    
+    addLog('Done!', 'ok');
+    
+    // Read and display output
+    const data = await ffmpeg.readFile(outName);
+    await renderOutput(data, fmt);
+    
+    // Cleanup
+    await ffmpeg.deleteFile(outName).catch(() => {});
+    await ffmpeg.deleteFile('autogen.srt').catch(() => {});
+    
+    // Hide transcript panel
+    document.getElementById('autoCaptionTranscriptPanel').classList.add('hidden');
+    document.getElementById('progWrap').classList.add('hidden');
+    
+    // Re-enable button
+    document.getElementById('processBtn').disabled = false;
+    
+  } catch (err) {
+    const errorMsg = err && err.message ? err.message : (err ? String(err) : 'Unknown error');
+    addLog(`Error confirming transcript: ${errorMsg}`, 'err');
+    document.getElementById('processBtn').disabled = false;
+  }
+}
+
+/**
+ * Explicitly clean up transcriber and its model to free memory.
+ * Called before re-engaging ffmpeg to prevent OOM.
+ */
+async function cleanupAutoCaptionResources() {
+  try {
+    if (autoCaptionTranscriber && typeof autoCaptionTranscriber.dispose === 'function') {
+      await autoCaptionTranscriber.dispose();
+    }
+  } catch (e) {
+    // Ignore errors during cleanup
+  }
+  autoCaptionTranscriber = null;
+  autoCaptionSegments = null;
+  
+  // Hint garbage collection
+  if (typeof gc === 'function') gc();
+}
+
+// ──────────────────────────────────────────────────────────────
+// EXPOSE AUTO-CAPTION FUNCTIONS TO GLOBAL SCOPE
+// (Required for inline onclick handlers since this is a <script type="module">)
+// ──────────────────────────────────────────────────────────────
+window.confirmAutoCaptionTranscript = confirmAutoCaptionTranscript;
+window.clearAutoCaptionTranscript = clearAutoCaptionTranscript;
+window.updateAutoCaptionInfo = updateAutoCaptionInfo;
+
 </script>
 </body>
 </html>
