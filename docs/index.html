@@ -2347,6 +2347,10 @@ async function runProcess() {
           // STEP 2: Initialize Transcriber and transcribe
           addLog('Stage 2/3: Transcribing with Whisper\u2026', 'ok');
           
+          // Show progress bar
+          const progWrap = document.getElementById('progWrap');
+          progWrap.classList.remove('hidden');
+          
           // Initialize main progress bar to 0%
           document.getElementById('progPct').textContent = '0%';
           document.getElementById('progFill').style.width = '0%';
@@ -2356,23 +2360,50 @@ async function runProcess() {
           
           // Create progress UI updater for transcription
           const updateProgress = (prog) => {
+            // Ensure prog is an object
+            if (typeof prog !== 'object' || !prog) {
+              console.warn('Invalid progress object:', prog);
+              return;
+            }
+
             let pct, label;
+            
             // Handle Transformers.js progress format (for model download)
             if (prog.status === 'progress' || prog.status === 'downloading') {
               const loaded = prog.loaded || 0;
               const total = prog.total || 1;
               pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
               label = `Loading model\u2026 ${pct}%`;
+              console.log('Model loading progress:', pct + '%');
             }
-            // Handle our custom progress format (for transcription)
-            else if (prog.pct !== undefined) {
+            // Handle custom transcription progress format
+            else if (typeof prog.pct === 'number') {
               pct = prog.pct;
-              label = prog.label || 'Transcribing\u2026';
+              label = prog.label || `Transcribing\u2026 ${pct}%`;
+              console.log('Transcription progress:', pct + '%', prog.label);
             }
-            if (pct !== undefined) {
-              document.getElementById('progPct').textContent = `${pct}%`;
-              document.getElementById('progFill').style.width = `${pct}%`;
-              document.getElementById('progLabel').textContent = label;
+            
+            // Update progress bar if we have a valid percentage
+            if (typeof pct === 'number' && pct >= 0) {
+              const progPct = document.getElementById('progPct');
+              const progFill = document.getElementById('progFill');
+              const progLabel = document.getElementById('progLabel');
+              
+              if (progPct) {
+                progPct.textContent = `${pct}%`;
+              } else {
+                console.warn('progPct element not found');
+              }
+              if (progFill) {
+                progFill.style.width = `${pct}%`;
+              } else {
+                console.warn('progFill element not found');
+              }
+              if (progLabel) {
+                progLabel.textContent = label;
+              } else {
+                console.warn('progLabel element not found');
+              }
             }
           };
           

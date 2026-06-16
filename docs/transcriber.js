@@ -158,6 +158,8 @@ export class Transcriber {
           label: `Transcribing… ${pct}%`,
           segments: allSegments,
         });
+        // Yield control to browser to allow UI updates before next chunk
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
     }
 
