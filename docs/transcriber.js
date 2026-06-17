@@ -139,10 +139,20 @@ export class Transcriber {
 
       // Convert this chunk's results and adjust timestamps.
       const chunkSegments = this._toSegments(result, chunkAudio.length / sampleRate16k);
+      const isFirstChunk = offset === 0;
       for (const seg of chunkSegments) {
         // Shift timestamps by the global time offset.
         seg.start += globalTimeOffset;
         seg.end += globalTimeOffset;
+
+        // Every chunk after the first re-transcribes the `overlapDuration`
+        // seconds it shares with the previous chunk. Without this guard those
+        // shared seconds produce duplicate, stacked captions that read as
+        // broken time-sync. The previous chunk already covered that region, so
+        // drop any segment from this chunk that starts inside the overlap.
+        if (!isFirstChunk && seg.start < globalTimeOffset + overlapDuration) {
+          continue;
+        }
         allSegments.push(seg);
       }
 

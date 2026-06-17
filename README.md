@@ -165,11 +165,14 @@ Fine-tune the look of a clip with the `eq` filter. Three sliders control brightn
 Remove all embedded metadata -- GPS coordinates, camera make/model, creation timestamps, and any other tags -- before sharing a file. Uses `-map_metadata -1` during re-encoding.
 
 ### ▢ Embed Subtitles
-Mux an `.srt`, `.vtt`, or `.ass` subtitle file into the video as a **soft subtitle track** -- toggleable on/off in any media player (VLC, browser, etc.) without re-encoding the picture. Output format choices:
-- **MP4** : subtitle stream encoded as `mov_text`
-- **MKV** : subtitle stream copied natively (preserves ASS/SSA styling)
+Mux an `.srt`, `.vtt`, or `.ass` subtitle file into the video. Two methods:
 
-Video and audio are stream-copied (zero quality loss, near-instant). Hard-burning subtitles into the picture requires a libass-enabled ffmpeg build and is not available in the standard WebAssembly core.
+- **Stream embed (soft subtitles)** -- toggleable on/off in any media player (VLC, browser, etc.) without re-encoding the picture. Video and audio are stream-copied (zero quality loss, near-instant). Output format choices:
+  - **MP4** : subtitle stream encoded as `mov_text`
+  - **MKV** : subtitle stream copied natively (preserves ASS/SSA styling)
+- **Hard-burn** -- captions are baked directly into the video frames, so they're always visible (ideal for social media). The standard WebAssembly core ships no fonts for libass, so cues are rendered with the browser canvas (white outlined text in a fitted, rounded box, centered along the bottom with automatic word-wrap) and overlaid onto the video, which is then re-encoded. Supports `.srt`, `.vtt`, and `.ass`/`.ssa`.
+
+**Caption font size** (hard-burn only): choose **Small**, **Medium** (default), or **Large**. The size scales with the video resolution so captions stay proportional on any clip.
 
 ### ◉ Auto-Caption (Whisper)
 Generate **automatic captions** from speech using [OpenAI's Whisper](https://openai.com/research/whisper) model via [Transformers.js](https://xenova.github.io/transformers.js/). Transcription runs entirely in your browser—your audio never leaves your device. Model weights are cached locally in IndexedDB after the first download, and the library is cached by the service worker for offline use. Edit the transcript before embedding it as soft subtitles.
@@ -178,7 +181,7 @@ Generate **automatic captions** from speech using [OpenAI's Whisper](https://ope
 1. **Extract** : Audio is extracted from the video at 16 kHz mono
 2. **Transcribe** : Whisper processes the audio in 30-second chunks with 5-second overlap to generate accurate captions
 3. **Review & Edit** : Transcript appears in a textarea as SRT format - edit any caption before embedding
-4. **Embed** : Click **Confirm & Embed** to mux the subtitles as a soft track into the output video (same format options as Embed Subtitles)
+4. **Embed** : Click **Confirm & Embed** to add the captions to the output video. Choose **soft subtitles** (muxed as a toggleable track) or **hard-burn** (baked into the frames, same canvas renderer and **Small / Medium / Large** font-size choice as Embed Subtitles)
 
 **Model Selection** (choose speed vs. accuracy):
 - **Tiny** (39 MB) : Fastest, lower quality - good for quick turnarounds or speech-only content
