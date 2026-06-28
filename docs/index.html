@@ -1327,6 +1327,36 @@ function getVideoSize() {
   return { w: vid.videoWidth || 0, h: vid.videoHeight || 0 };
 }
 
+// Remembers the user's chosen thumbnail format ('jpg' | 'png'). We always have
+// ffmpeg extract a PNG (this wasm core's mjpeg encoder crashes with "memory
+// access out of bounds") and convert to JPEG in the browser when needed.
+let thumbnailUserExt = 'png';
+
+/**
+ * Convert PNG bytes to JPEG bytes using a canvas (the wasm mjpeg encoder is
+ * unusable in this core build). Returns a Uint8Array of JPEG data.
+ */
+function pngToJpeg(pngBytes, quality = 0.92) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(new Blob([pngBytes], { type: 'image/png' }));
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);  // video frames are opaque, no background needed
+      canvas.toBlob(async (blob) => {
+        URL.revokeObjectURL(url);
+        if (!blob) { reject(new Error('JPEG conversion failed')); return; }
+        resolve(new Uint8Array(await blob.arrayBuffer()));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load extracted frame for JPEG conversion')); };
+    img.src = url;
+  });
+}
+
 function clamp(n, min, max) {
   return Math.min(max, Math.max(min, n));
 }
@@ -2275,12 +2305,13 @@ async function runProcess() {
       }
       case 'thumbnail': {
         const t = parseFloat(document.getElementById('thumbTime').value) || 0;
-        ext = document.getElementById('thumbFmt').value;
+        thumbnailUserExt = document.getElementById('thumbFmt').value; // 'jpg' | 'png'
+        // This wasm core's mjpeg encoder crashes ("memory access out of bounds"),
+        // so we ALWAYS extract a PNG and convert to JPEG in the browser below.
+        // -update 1 lets image2 write a single fixed-name image; -an drops audio.
+        ext = 'png';
         args.length = 0; // override trim args — seek directly to timestamp
-        // -update 1 lets the image2 muxer write a single image to a fixed
-        // filename; without it ffmpeg 5.x rejects the non-sequence name.
-        args.push('-ss', t.toFixed(3), '-i', inName, '-frames:v', '1', '-update', '1');
-        if (ext === 'jpg') args.push('-q:v', '2');
+        args.push('-i', inName, '-ss', t.toFixed(3), '-frames:v', '1', '-update', '1', '-an');
         break;
       }
       case 'reverse': {
@@ -2835,8 +2866,15 @@ async function runProcess() {
     const finalExt = String(finalOut).split('.').pop().toLowerCase();
     outExt = finalExt;
 
-    const data = await ffmpeg.readFile(finalOut);
-    await renderOutput(data, finalExt);
+    let data = await ffmpeg.readFile(finalOut);
+    let deliverExt = finalExt;
+    if (currentOp === 'thumbnail' && thumbnailUserExt === 'jpg') {
+      addLog('Converting frame to JPEG…', 'ok');
+      data = await pngToJpeg(data, 0.92);
+      deliverExt = 'jpg';
+      outExt = 'jpg';
+    }
+    await renderOutput(data, deliverExt);
 
     // Clean up virtual FS
     await ffmpeg.deleteFile(inName).catch(() => {});
@@ -2956,7 +2994,7 @@ async function processBatchFile(item) {
   
   const inName = 'batchinput_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.' + inputFileExt;
   const baseName = file.name.replace(/\.[^.]+$/, '');
-  const outName = 'batchoutput_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.' + outExt;
+  let outName = 'batchoutput_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.' + outExt;
   item.outputName = baseName + '_processed.' + outExt;
 
   // Write input file
@@ -2980,11 +3018,12 @@ async function processBatchFile(item) {
   // Special case: thumbnail uses its own seek logic
   if (currentOp === 'thumbnail') {
     const t = parseFloat(document.getElementById('thumbTime').value) || 0;
-    const thumbFmt = document.getElementById('thumbFmt').value;
-    args.push('-ss', t.toFixed(3), '-i', inName, '-frames:v', '1', '-update', '1');
-    if (thumbFmt === 'jpg') args.push('-q:v', '2');
-    item.outputName = baseName + '.' + thumbFmt;
-  } 
+    thumbnailUserExt = document.getElementById('thumbFmt').value; // 'jpg' | 'png'
+    // Always extract a PNG (the wasm mjpeg encoder crashes); convert below.
+    outName = outName.replace(/\.[^.]+$/, '.png');
+    args.push('-i', inName, '-ss', t.toFixed(3), '-frames:v', '1', '-update', '1', '-an');
+    item.outputName = baseName + '.' + thumbnailUserExt;
+  }
   // Special case: gif uses filter_complex
   else if (currentOp === 'gif') {
     const fps = document.getElementById('gifFps').value || 10;
@@ -3019,13 +3058,20 @@ async function processBatchFile(item) {
   // The fallback chain may change the real output (e.g. WebM → MP4).
   const finalOut = args[args.length - 1];
   const finalExt = String(finalOut).split('.').pop().toLowerCase();
-  if (finalExt !== outExt && item.outputName) {
+  // Thumbnails keep their user-chosen name (set above); the rename logic only
+  // applies to the WebM→MP4 video fallback.
+  if (currentOp !== 'thumbnail' && finalExt !== outExt && item.outputName) {
     item.outputName = item.outputName.replace(/\.[^.]+$/, '.' + finalExt);
   }
 
   // Read output
-  const data = await ffmpeg.readFile(finalOut);
-  item.output = new Blob([data.buffer], { type: 'video/' + finalExt });
+  let data = await ffmpeg.readFile(finalOut);
+  let blobType = 'video/' + finalExt;
+  if (currentOp === 'thumbnail') {
+    if (thumbnailUserExt === 'jpg') { data = await pngToJpeg(data, 0.92); blobType = 'image/jpeg'; }
+    else { blobType = 'image/png'; }
+  }
+  item.output = new Blob([data.buffer], { type: blobType });
 
   // Cleanup input and output files from virtual filesystem
   try { await ffmpeg.deleteFile(inName); } catch (_) {}
