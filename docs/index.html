@@ -2034,7 +2034,7 @@ const RAW_EXAMPLES = [
   { label: '<i class="fas fa-bullseye"></i> Stabilize (deshake)',     args: '-vf deshake -c:v libx264 -crf 23 -preset fast -c:a copy',                                                                                                         ext: 'mp4' },
   { label: '<i class="fas fa-moon"></i> Vignette effect',         args: '-vf vignette=PI/4 -c:v libx264 -crf 23 -preset fast -c:a copy',                                                                                                   ext: 'mp4' },
   { label: '<i class="fas fa-file-audio"></i> Extract audio as WAV',    args: '-vn -acodec pcm_s16le',                                                                                                                                           ext: 'wav' },
-  { label: '<i class="fas fa-image"></i> Extract first frame',     args: '-vframes 1',                                                                                                                                                       ext: 'png' },
+  { label: '<i class="fas fa-image"></i> Extract first frame',     args: '-frames:v 1 -update 1',                                                                                                                                            ext: 'png' },
   { label: '<i class="fas fa-music"></i> Replace audio track',     args: '-i input2.mp3 -map 0:v:0 -map 1:a:0 -shortest -c:v copy -c:a aac',  ext: 'mp4', needsInput2: true  },
 ];
 
@@ -2277,7 +2277,9 @@ async function runProcess() {
         const t = parseFloat(document.getElementById('thumbTime').value) || 0;
         ext = document.getElementById('thumbFmt').value;
         args.length = 0; // override trim args — seek directly to timestamp
-        args.push('-ss', t.toFixed(3), '-i', inName, '-vframes', '1');
+        // -update 1 lets the image2 muxer write a single image to a fixed
+        // filename; without it ffmpeg 5.x rejects the non-sequence name.
+        args.push('-ss', t.toFixed(3), '-i', inName, '-frames:v', '1', '-update', '1');
         if (ext === 'jpg') args.push('-q:v', '2');
         break;
       }
@@ -2979,7 +2981,7 @@ async function processBatchFile(item) {
   if (currentOp === 'thumbnail') {
     const t = parseFloat(document.getElementById('thumbTime').value) || 0;
     const thumbFmt = document.getElementById('thumbFmt').value;
-    args.push('-ss', t.toFixed(3), '-i', inName, '-vframes', '1');
+    args.push('-ss', t.toFixed(3), '-i', inName, '-frames:v', '1', '-update', '1');
     if (thumbFmt === 'jpg') args.push('-q:v', '2');
     item.outputName = baseName + '.' + thumbFmt;
   } 
