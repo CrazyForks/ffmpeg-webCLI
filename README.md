@@ -109,6 +109,8 @@ Trim the frame to a specific region. X/Y offset and width/height are auto-filled
 ### ▭ Thumbnail Extractor
 Pull a single frame from any point in the video and save it as a **JPEG** or **PNG** image. The timestamp field is pre-filled to the midpoint of the loaded clip.
 
+The frame is always extracted as a PNG (ffmpeg's `-frames:v 1`); JPEG output is then produced in-browser via a canvas. This works around a crash (`memory access out of bounds`) in the WebAssembly core's MJPEG encoder, so JPEG thumbnails stay reliable across all clips, including high-frame-rate and variable-frame-rate sources.
+
 ### ⟲ Reverse
 Play the video (and audio) backwards using ffmpeg's `reverse` + `areverse` filters. The reverse filter buffers the entire video into memory for processing, which combined with re-encoding makes it memory-intensive. Works in single mode; **not supported in batch mode** to prevent memory exhaustion when processing multiple large files (risk of hitting the 2GB WebAssembly heap limit).
 
@@ -132,11 +134,11 @@ Mux an `.srt`, `.vtt`, or `.ass` subtitle file into the video. Two methods:
 **Caption font size** (hard-burn only): choose **Small**, **Medium** (default), or **Large**. The size scales with the video resolution so captions stay proportional on any clip.
 
 ### ◉ Auto-Caption (Whisper)
-Generate **automatic captions** from speech using [OpenAI's Whisper](https://openai.com/research/whisper) model via [Transformers.js](https://xenova.github.io/transformers.js/). Transcription runs entirely in your browser—your audio never leaves your device. Model weights are cached locally in IndexedDB after the first download, and the library is cached by the service worker for offline use. Edit the transcript before embedding it as soft subtitles.
+Generate **automatic captions** from speech using [OpenAI's Whisper](https://openai.com/research/whisper) model via [Transformers.js](https://xenova.github.io/transformers.js/). Transcription runs entirely in your browser—your audio never leaves your device. Model weights are cached locally in IndexedDB after the first download, and the library is cached by the service worker for offline use. Edit the transcript before embedding it as a soft subtitle track or burning it into the frames.
 
 **Workflow:**
 1. **Extract** : Audio is extracted from the video at 16 kHz mono
-2. **Transcribe** : Whisper processes the audio in 30-second chunks with 5-second overlap to generate accurate captions
+2. **Transcribe** : Whisper processes the audio in 30-second chunks with 5-second overlap for context; the overlapping seconds are de-duplicated so captions don't repeat and stay in sync with the audio
 3. **Review & Edit** : Transcript appears in a textarea as SRT format - edit any caption before embedding
 4. **Embed** : Click **Confirm & Embed** to add the captions to the output video. Choose **soft subtitles** (muxed as a toggleable track) or **hard-burn** (baked into the frames, same canvas renderer and **Small / Medium / Large** font-size choice as Embed Subtitles)
 
@@ -147,9 +149,11 @@ Generate **automatic captions** from speech using [OpenAI's Whisper](https://ope
 
 Models are lazy-loaded and cached on first use (~15–30 seconds for initial download, then instant on subsequent runs).
 
-**Output Format:**
+**Output Format** (soft-subtitle embedding):
 - **MP4** : subtitle stream encoded as `mov_text`
 - **MKV** : subtitle stream copied natively
+
+With **Hard-burn** checked, the captions are instead baked into the video frames using the same browser-canvas renderer as Embed Subtitles (word-wrapped, centered, bottom-anchored, with a **Small / Medium / Large** font-size choice).
 
 **Key Features:**
 - ✓ Audio never leaves your device (no uploads, no API calls)
